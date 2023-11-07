@@ -2,6 +2,8 @@ module go.etcd.io/etcd/server/v3
 
 go 1.21
 
+replace go.etcd.io/raft/v3 => /home/koya/Develop/adaptive-raft/raft
+
 require (
 	github.com/coreos/go-semver v0.3.1
 	github.com/coreos/go-systemd/v22 v22.5.0

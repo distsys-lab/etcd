@@ -12,7 +12,7 @@ replace (
 	go.etcd.io/etcd/pkg/v3 => ./pkg
 	go.etcd.io/etcd/server/v3 => ./server
 	go.etcd.io/etcd/tests/v3 => ./tests
-	go.etcd.io/raft/v3 => github.com/skoya76/raft v0.0.0-20231106142250-7a879f60efc1
+	go.etcd.io/raft/v3 => /home/koya/Develop/adaptive-raft/raft
 )
 
 require (
