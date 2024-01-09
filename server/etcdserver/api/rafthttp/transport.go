@@ -308,43 +308,14 @@ func (t *Transport) MendPeer(id types.ID) {
 	}
 }
 
-func (t *Transport) AddRemote(id types.ID, us []string) {
+func (t *Transport) AddPeer(id types.ID, us []string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.remotes == nil {func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Message) {
-		conn, err := net.ListenPacket("udp", address)
-		if err != nil {
-			t.Logger.Error("UDP Listener error", zap.Error(err))
-			return
-		}
-		defer conn.Close()
-	
-		for {
-			buffer := make([]byte, 1024)
-			n, _, err := conn.ReadFrom(buffer)
-			if err != nil {
-				t.Logger.Error("Error reading from UDP", zap.Error(err))
-				continue
-			}
-	
-			var msg raftpb.Message
-			if err := msg.Unmarshal(buffer[:n]); err != nil {
-				t.Logger.Error("Error unmarshaling message", zap.Error(err))
-				continue
-			}
-	
-			recvcUDP <- msg
-		}
-	}
-		// there's no clean way to shutdown the golang http server
-		// (see: https://github.com/golang/go/issues/4674) before
-		// stopping the transport; ignore any new connections.
-		return
+
+	if t.peers == nil {
+		panic("transport stopped")
 	}
 	if _, ok := t.peers[id]; ok {
-		return
-	}
-	if _, ok := t.remotes[id]; ok {
 		return
 	}
 	urls, err := types.NewURLs(us)
@@ -353,11 +324,14 @@ func (t *Transport) AddRemote(id types.ID, us []string) {
 			t.Logger.Panic("failed NewURLs", zap.Strings("urls", us), zap.Error(err))
 		}
 	}
-	t.remotes[id] = startRemote(t, urls, id)
+	fs := t.LeaderStats.Follower(id.String())
+	t.peers[id] = startPeer(t, urls, id, fs)
+	addPeerToProber(t.Logger, t.pipelineProber, id.String(), us, RoundTripperNameSnapshot, rttSec)
+	addPeerToProber(t.Logger, t.streamProber, id.String(), us, RoundTripperNameRaftMessage, rttSec)
 
 	if t.Logger != nil {
 		t.Logger.Info(
-			"added new remote peer",
+			"added remote peer",
 			zap.String("local-member-id", t.ID.String()),
 			zap.String("remote-peer-id", id.String()),
 			zap.Strings("remote-peer-urls", us),
