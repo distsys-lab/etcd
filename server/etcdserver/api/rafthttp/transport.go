@@ -16,6 +16,7 @@ package rafthttp
 
 import (
 	"context"
+	"net" // added by @skoya76
 	"net/http"
 	"sync"
 	"time"
@@ -128,6 +129,12 @@ type Transport struct {
 
 	pipelineProber probing.Prober
 	streamProber   probing.Prober
+
+	// ============ added by @skoya76 ============
+	recvcUDP chan raftpb.Message
+	stopc chan struct{}
+	// UDPListenURL string
+	// ============ added by @skoya76 ============
 }
 
 func (t *Transport) Start() error {
@@ -144,6 +151,13 @@ func (t *Transport) Start() error {
 	t.peers = make(map[types.ID]Peer)
 	t.pipelineProber = probing.NewProber(t.pipelineRt)
 	t.streamProber = probing.NewProber(t.streamRt)
+	// ============ added by @skoya76 ============
+	t.recvcUDP = make(chan raftpb.Message, 4096)
+	t.stopc = make(chan struct{})
+
+	// TODO: Include udp adder in config structure and read from there
+	go t.startUDPListener("localhost:2381", t.recvcUDP)
+	// ============ added by @skoya76 ============
 
 	// If client didn't provide dial retry frequency, use the default
 	// (100ms backoff between attempts to create a new stream),
@@ -152,6 +166,32 @@ func (t *Transport) Start() error {
 		t.DialRetryFrequency = rate.Every(100 * time.Millisecond)
 	}
 	return nil
+}
+
+func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Message) {
+	conn, err := net.ListenPacket("udp", address)
+	if err != nil {
+		t.Logger.Error("UDP Listener error", zap.Error(err))
+		return
+	}
+	defer conn.Close()
+
+	for {
+		buffer := make([]byte, 1024)
+		n, _, err := conn.ReadFrom(buffer)
+		if err != nil {
+			t.Logger.Error("Error reading from UDP", zap.Error(err))
+			continue
+		}
+
+		var msg raftpb.Message
+		if err := msg.Unmarshal(buffer[:n]); err != nil {
+			t.Logger.Error("Error unmarshaling message", zap.Error(err))
+			continue
+		}
+
+		recvcUDP <- msg
+	}
 }
 
 func (t *Transport) Handler() http.Handler {
@@ -189,6 +229,15 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 			if isMsgApp(m) {
 				t.ServerStats.SendAppendReq(m.Size())
 			}
+			// ============ added by @skoya76 ============
+			if m.Type == raftpb.MsgHeartbeat || m.Type == raftpb.MsgHeartbeatResp {
+				err := p.sendViaUDP(m)
+				if err != nil {
+					t.Logger.Warn("failed to send heartbeat via UDP", zap.Error(err))
+				}
+				continue
+			}
+			// ============ added by @skoya76 ============
 			p.send(m)
 			continue
 		}
@@ -262,7 +311,31 @@ func (t *Transport) MendPeer(id types.ID) {
 func (t *Transport) AddRemote(id types.ID, us []string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if t.remotes == nil {
+	if t.remotes == nil {func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Message) {
+		conn, err := net.ListenPacket("udp", address)
+		if err != nil {
+			t.Logger.Error("UDP Listener error", zap.Error(err))
+			return
+		}
+		defer conn.Close()
+	
+		for {
+			buffer := make([]byte, 1024)
+			n, _, err := conn.ReadFrom(buffer)
+			if err != nil {
+				t.Logger.Error("Error reading from UDP", zap.Error(err))
+				continue
+			}
+	
+			var msg raftpb.Message
+			if err := msg.Unmarshal(buffer[:n]); err != nil {
+				t.Logger.Error("Error unmarshaling message", zap.Error(err))
+				continue
+			}
+	
+			recvcUDP <- msg
+		}
+	}
 		// there's no clean way to shutdown the golang http server
 		// (see: https://github.com/golang/go/issues/4674) before
 		// stopping the transport; ignore any new connections.
