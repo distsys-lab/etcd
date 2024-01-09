@@ -68,7 +68,7 @@ type Peer interface {
 	// When it fails to send message out, it will report the status to underlying
 	// raft.
 	send(m raftpb.Message)
-	sendViaUDP(m raftpb.Message)
+	sendViaUDP(m raftpb.Message) error
 
 	// sendSnap sends the merged snapshot message to the remote peer. Its behavior
 	// is similar to send.
