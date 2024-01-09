@@ -133,6 +133,7 @@ type Transport struct {
 	// ============ added by @skoya76 ============
 	recvcUDP chan raftpb.Message
 	stopc chan struct{}
+	cancel context.CancelFunc // cancel pending works in go routine created by peer.
 	// UDPListenURL string
 	// ============ added by @skoya76 ============
 }
@@ -159,6 +160,7 @@ func (t *Transport) Start() error {
 	go t.startUDPListener("localhost:2381", t.recvcUDP)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	t.cancel = cancel
 	go func() {
 		for {
 			select {
@@ -274,7 +276,8 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 }
 
 func (t *Transport) Stop() {
-	close(t.stopc)
+	close(t.stopc) // added by @skoya76
+	t.cancel() // added by @skoya76
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, r := range t.remotes {
