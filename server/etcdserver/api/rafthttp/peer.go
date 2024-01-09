@@ -267,36 +267,36 @@ func (p *peer) send(m raftpb.Message) {
 	}
 }
 
-func (p *peer) sendViaUDP(m raftpb.Message) {
-	tcpURL := p.picker.pick()
+func (p *peer) sendViaUDP(m raftpb.Message) error {
+    tcpURL := p.picker.pick()
 
-	host, _, err := net.SplitHostPort(tcpURL.Host)
-	if err != nil {
-		p.lg.Error("error parsing host from URL", zap.String("url", tcpURL.String()), zap.Error(err))
-		return err
-	}
-	
-	addr := fmt.Sprintf("%s:%d", host, 2381)
-	conn, err := net.Dial("udp", addr)
-	if err != nil {
-		lg.Logger.Error("error dialing UDP", zap.String("address", addr), zap.Error(err))
-		return err
-	}
-	defer conn.Close()
-	
-	data, err := m.Marshal()
-	if err != nil {
-		lg.Logger.Error("error marshaling message for UDP send", zap.Error(err))
-		return err
-	}
-	
-	_, err = conn.Write(data)
-	if err != nil {
-		lg.Logger.Error("error sending data via UDP", zap.String("address", addr), zap.Error(err))
-		return err
-	}
-	
-	return nil
+    host, _, err := net.SplitHostPort(tcpURL.Host)
+    if err != nil {
+        p.lg.Error("error parsing host from URL", zap.String("url", tcpURL.String()), zap.Error(err))
+        return err
+    }
+    
+    addr := fmt.Sprintf("%s:%d", host, 2381)
+    conn, err := net.Dial("udp", addr)
+    if err != nil {
+        p.lg.Error("error dialing UDP", zap.String("address", addr), zap.Error(err))
+        return err
+    }
+    defer conn.Close()
+    
+    data, err := m.Marshal()
+    if err != nil {
+        p.lg.Error("error marshaling message for UDP send", zap.Error(err))
+        return err
+    }
+    
+    _, err = conn.Write(data)
+    if err != nil {
+        p.lg.Error("error sending data via UDP", zap.String("address", addr), zap.Error(err))
+        return err
+    }
+    
+    return nil
 }
 
 func (p *peer) sendSnap(m snap.Message) {
