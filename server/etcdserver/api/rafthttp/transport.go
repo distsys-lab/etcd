@@ -157,7 +157,7 @@ func (t *Transport) Start() error {
 	t.stopc = make(chan struct{})
 
 	// TODO: Include udp adder in config structure and read from there
-	go t.startUDPListener("localhost:2381", t.recvcUDP)
+	go t.startUDPListener("0.0.0.0:2381", t.recvcUDP)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.cancel = cancel
@@ -187,30 +187,36 @@ func (t *Transport) Start() error {
 }
 
 func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Message) {
-	conn, err := net.ListenPacket("udp", address)
-	if err != nil {
-		t.Logger.Error("UDP Listener error", zap.Error(err))
-		return
-	}
-	defer conn.Close()
+    conn, err := net.ListenPacket("udp", address)
+    if err != nil {
+        t.Logger.Error("UDP Listener error", zap.Error(err))
+        return
+    }
+    defer func() {
+        conn.Close()
+        t.Logger.Info("UDP listener closed", zap.String("address", address))
+    }()
 
-	for {
-		buffer := make([]byte, 1024)
-		n, _, err := conn.ReadFrom(buffer)
-		if err != nil {
-			t.Logger.Error("Error reading from UDP", zap.Error(err))
-			continue
-		}
+    for {
+        buffer := make([]byte, 1024)
+        n, _, err := conn.ReadFrom(buffer)
+        if err != nil {
+            t.Logger.Error("Error reading from UDP", zap.Error(err))
+            continue
+        }
 
-		var msg raftpb.Message
-		if err := msg.Unmarshal(buffer[:n]); err != nil {
-			t.Logger.Error("Error unmarshaling message", zap.Error(err))
-			continue
-		}
+        var msg raftpb.Message
+        if err := msg.Unmarshal(buffer[:n]); err != nil {
+            t.Logger.Error("Error unmarshaling message", zap.Error(err))
+            continue
+        }
 
-		recvcUDP <- msg
-	}
+        t.Logger.Debug("Successfully received message via UDP", zap.String("message-type", msg.Type.String()), zap.Uint64("from-peer-id", msg.From))
+
+        recvcUDP <- msg
+    }
 }
+
 
 func (t *Transport) Handler() http.Handler {
 	pipelineHandler := newPipelineHandler(t, t.Raft, t.ClusterID)
@@ -250,10 +256,10 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 			// ============ added by @skoya76 ============
 			if m.Type == raftpb.MsgHeartbeat || m.Type == raftpb.MsgHeartbeatResp {
 				err := p.sendViaUDP(m)
-				if err != nil {
-					t.Logger.Warn("failed to send heartbeat via UDP", zap.Error(err))
-				}
-				continue
+        		if err != nil {
+        		    t.Logger.Warn("failed to send heartbeat via UDP", zap.Error(err))
+        		}
+        		continue
 			}
 			// ============ added by @skoya76 ============
 			p.send(m)

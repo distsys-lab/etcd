@@ -296,7 +296,9 @@ func (p *peer) sendViaUDP(m raftpb.Message) error {
         p.lg.Error("error sending data via UDP", zap.String("address", addr), zap.Error(err))
         return err
     }
-    
+
+	p.lg.Debug("successfully sent message via UDP", zap.String("address", addr), zap.String("message-type", m.Type.String()))
+
     return nil
 }
 
