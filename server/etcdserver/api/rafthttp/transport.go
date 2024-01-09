@@ -165,7 +165,7 @@ func (t *Transport) Start() error {
 		for {
 			select {
 			case mm := <-t.recvcUDP:
-				if err := r.Process(ctx, mm); err != nil {
+				if err := t.Raft.Process(ctx, mm); err != nil {
 					if t.Logger != nil {
 						t.Logger.Warn("failed to process Raft message", zap.Error(err))
 					}
