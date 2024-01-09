@@ -16,6 +16,8 @@ package rafthttp
 
 import (
 	"context"
+	"net"
+	"fmt"
 	"sync"
 	"time"
 
@@ -277,20 +279,20 @@ func (p *peer) sendViaUDP(m raftpb.Message) {
 	addr := fmt.Sprintf("%s:%d", host, 2381)
 	conn, err := net.Dial("udp", addr)
 	if err != nil {
-		t.Logger.Error("error dialing UDP", zap.String("address", addr), zap.Error(err))
+		lg.Logger.Error("error dialing UDP", zap.String("address", addr), zap.Error(err))
 		return err
 	}
 	defer conn.Close()
 	
 	data, err := m.Marshal()
 	if err != nil {
-		t.Logger.Error("error marshaling message for UDP send", zap.Error(err))
+		lg.Logger.Error("error marshaling message for UDP send", zap.Error(err))
 		return err
 	}
 	
 	_, err = conn.Write(data)
 	if err != nil {
-		t.Logger.Error("error sending data via UDP", zap.String("address", addr), zap.Error(err))
+		lg.Logger.Error("error sending data via UDP", zap.String("address", addr), zap.Error(err))
 		return err
 	}
 	
