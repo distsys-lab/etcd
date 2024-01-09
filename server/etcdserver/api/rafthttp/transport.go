@@ -157,6 +157,22 @@ func (t *Transport) Start() error {
 
 	// TODO: Include udp adder in config structure and read from there
 	go t.startUDPListener("localhost:2381", t.recvcUDP)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case mm := <-t.recvcUDP:
+				if err := r.Process(ctx, mm); err != nil {
+					if t.Logger != nil {
+						t.Logger.Warn("failed to process Raft message", zap.Error(err))
+					}
+				}
+			case <-t.stopc:
+				return
+			}
+		}
+	}()
 	// ============ added by @skoya76 ============
 
 	// If client didn't provide dial retry frequency, use the default
@@ -258,6 +274,7 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 }
 
 func (t *Transport) Stop() {
+	close(t.stopc)
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, r := range t.remotes {
