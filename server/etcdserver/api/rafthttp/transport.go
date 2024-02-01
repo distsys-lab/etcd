@@ -16,6 +16,7 @@ package rafthttp
 
 import (
 	"context"
+	"net" // added by @skoya76
 	"net/http"
 	"sync"
 	"time"
@@ -128,6 +129,13 @@ type Transport struct {
 
 	pipelineProber probing.Prober
 	streamProber   probing.Prober
+
+	// ============ added by @skoya76 ============
+	recvcUDP chan raftpb.Message
+	stopc chan struct{}
+	cancel context.CancelFunc // cancel pending works in go routine created by peer.
+	// UDPListenURL string
+	// ============ added by @skoya76 ============
 }
 
 func (t *Transport) Start() error {
@@ -144,6 +152,30 @@ func (t *Transport) Start() error {
 	t.peers = make(map[types.ID]Peer)
 	t.pipelineProber = probing.NewProber(t.pipelineRt)
 	t.streamProber = probing.NewProber(t.streamRt)
+	// ============ added by @skoya76 ============
+	t.recvcUDP = make(chan raftpb.Message, 4096)
+	t.stopc = make(chan struct{})
+
+	// TODO: Include udp adder in config structure and read from there
+	go t.startUDPListener("0.0.0.0:2381", t.recvcUDP)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	t.cancel = cancel
+	go func() {
+		for {
+			select {
+			case mm := <-t.recvcUDP:
+				if err := t.Raft.Process(ctx, mm); err != nil {
+					if t.Logger != nil {
+						t.Logger.Warn("failed to process Raft message", zap.Error(err))
+					}
+				}
+			case <-t.stopc:
+				return
+			}
+		}
+	}()
+	// ============ added by @skoya76 ============
 
 	// If client didn't provide dial retry frequency, use the default
 	// (100ms backoff between attempts to create a new stream),
@@ -153,6 +185,38 @@ func (t *Transport) Start() error {
 	}
 	return nil
 }
+
+func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Message) {
+    conn, err := net.ListenPacket("udp", address)
+    if err != nil {
+        t.Logger.Error("UDP Listener error", zap.Error(err))
+        return
+    }
+    defer func() {
+        conn.Close()
+        t.Logger.Info("UDP listener closed", zap.String("address", address))
+    }()
+
+    for {
+        buffer := make([]byte, 1024)
+        n, _, err := conn.ReadFrom(buffer)
+        if err != nil {
+            t.Logger.Error("Error reading from UDP", zap.Error(err))
+            continue
+        }
+
+        var msg raftpb.Message
+        if err := msg.Unmarshal(buffer[:n]); err != nil {
+            t.Logger.Error("Error unmarshaling message", zap.Error(err))
+            continue
+        }
+
+        t.Logger.Debug("Successfully received message via UDP", zap.String("message-type", msg.Type.String()), zap.Uint64("from-peer-id", msg.From))
+
+        recvcUDP <- msg
+    }
+}
+
 
 func (t *Transport) Handler() http.Handler {
 	pipelineHandler := newPipelineHandler(t, t.Raft, t.ClusterID)
@@ -189,6 +253,15 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 			if isMsgApp(m) {
 				t.ServerStats.SendAppendReq(m.Size())
 			}
+			// ============ added by @skoya76 ============
+			if m.Type == raftpb.MsgHeartbeat || m.Type == raftpb.MsgHeartbeatResp {
+				err := p.sendViaUDP(m)
+        		if err != nil {
+        		    t.Logger.Warn("failed to send heartbeat via UDP", zap.Error(err))
+        		}
+        		continue
+			}
+			// ============ added by @skoya76 ============
 			p.send(m)
 			continue
 		}
@@ -209,6 +282,8 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 }
 
 func (t *Transport) Stop() {
+	close(t.stopc) // added by @skoya76
+	t.cancel() // added by @skoya76
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, r := range t.remotes {
@@ -259,6 +334,37 @@ func (t *Transport) MendPeer(id types.ID) {
 	}
 }
 
+func (t *Transport) AddPeer(id types.ID, us []string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.peers == nil {
+		panic("transport stopped")
+	}
+	if _, ok := t.peers[id]; ok {
+		return
+	}
+	urls, err := types.NewURLs(us)
+	if err != nil {
+		if t.Logger != nil {
+			t.Logger.Panic("failed NewURLs", zap.Strings("urls", us), zap.Error(err))
+		}
+	}
+	fs := t.LeaderStats.Follower(id.String())
+	t.peers[id] = startPeer(t, urls, id, fs)
+	addPeerToProber(t.Logger, t.pipelineProber, id.String(), us, RoundTripperNameSnapshot, rttSec)
+	addPeerToProber(t.Logger, t.streamProber, id.String(), us, RoundTripperNameRaftMessage, rttSec)
+
+	if t.Logger != nil {
+		t.Logger.Info(
+			"added remote peer",
+			zap.String("local-member-id", t.ID.String()),
+			zap.String("remote-peer-id", id.String()),
+			zap.Strings("remote-peer-urls", us),
+		)
+	}
+}
+
 func (t *Transport) AddRemote(id types.ID, us []string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -285,37 +391,6 @@ func (t *Transport) AddRemote(id types.ID, us []string) {
 	if t.Logger != nil {
 		t.Logger.Info(
 			"added new remote peer",
-			zap.String("local-member-id", t.ID.String()),
-			zap.String("remote-peer-id", id.String()),
-			zap.Strings("remote-peer-urls", us),
-		)
-	}
-}
-
-func (t *Transport) AddPeer(id types.ID, us []string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.peers == nil {
-		panic("transport stopped")
-	}
-	if _, ok := t.peers[id]; ok {
-		return
-	}
-	urls, err := types.NewURLs(us)
-	if err != nil {
-		if t.Logger != nil {
-			t.Logger.Panic("failed NewURLs", zap.Strings("urls", us), zap.Error(err))
-		}
-	}
-	fs := t.LeaderStats.Follower(id.String())
-	t.peers[id] = startPeer(t, urls, id, fs)
-	addPeerToProber(t.Logger, t.pipelineProber, id.String(), us, RoundTripperNameSnapshot, rttSec)
-	addPeerToProber(t.Logger, t.streamProber, id.String(), us, RoundTripperNameRaftMessage, rttSec)
-
-	if t.Logger != nil {
-		t.Logger.Info(
-			"added remote peer",
 			zap.String("local-member-id", t.ID.String()),
 			zap.String("remote-peer-id", id.String()),
 			zap.Strings("remote-peer-urls", us),
