@@ -146,7 +146,8 @@ func newRaftNode(cfg raftNodeConfig) *raftNode {
 	if r.heartbeat == 0 {
 		r.ticker = &time.Ticker{}
 	} else {
-		r.ticker = time.NewTicker(r.heartbeat)
+		//r.ticker = time.NewTicker(r.heartbeat)
+		r.ticker = time.NewTicker(1 * time.Millisecond)
 	}
 	return r
 }
