@@ -16,7 +16,7 @@ package rafthttp
 
 import (
 	"context"
-	"net" // added by @skoya76
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -130,12 +130,10 @@ type Transport struct {
 	pipelineProber probing.Prober
 	streamProber   probing.Prober
 
-	// ============ added by @skoya76 ============
 	recvcUDP chan raftpb.Message
 	stopc chan struct{}
 	cancel context.CancelFunc // cancel pending works in go routine created by peer.
 	// UDPListenURL string
-	// ============ added by @skoya76 ============
 }
 
 func (t *Transport) Start() error {
@@ -152,7 +150,6 @@ func (t *Transport) Start() error {
 	t.peers = make(map[types.ID]Peer)
 	t.pipelineProber = probing.NewProber(t.pipelineRt)
 	t.streamProber = probing.NewProber(t.streamRt)
-	// ============ added by @skoya76 ============
 	t.recvcUDP = make(chan raftpb.Message, 4096)
 	t.stopc = make(chan struct{})
 
@@ -175,7 +172,6 @@ func (t *Transport) Start() error {
 			}
 		}
 	}()
-	// ============ added by @skoya76 ============
 
 	// If client didn't provide dial retry frequency, use the default
 	// (100ms backoff between attempts to create a new stream),
@@ -253,7 +249,6 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 			if isMsgApp(m) {
 				t.ServerStats.SendAppendReq(m.Size())
 			}
-			// ============ added by @skoya76 ============
 			if m.Type == raftpb.MsgHeartbeat || m.Type == raftpb.MsgHeartbeatResp {
 				err := p.sendViaUDP(m)
         		if err != nil {
@@ -261,7 +256,6 @@ func (t *Transport) Send(msgs []raftpb.Message) {
         		}
         		continue
 			}
-			// ============ added by @skoya76 ============
 			p.send(m)
 			continue
 		}
@@ -282,8 +276,8 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 }
 
 func (t *Transport) Stop() {
-	close(t.stopc) // added by @skoya76
-	t.cancel() // added by @skoya76
+	close(t.stopc)
+	t.cancel()
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	for _, r := range t.remotes {
