@@ -1144,7 +1144,8 @@ func (cfg Config) InitialClusterFromName(name string) (ret string) {
 }
 
 func (cfg Config) IsNewCluster() bool { return cfg.ClusterState == ClusterStateFlagNew }
-func (cfg Config) ElectionTicks() int { return int(cfg.ElectionMs / cfg.TickMs) }
+//func (cfg Config) ElectionTicks() int { return int(cfg.ElectionMs / cfg.TickMs) }
+func (cfg Config) ElectionTicks() int { return int(cfg.ElectionMs) }
 
 func (cfg Config) V2DeprecationEffective() config.V2DeprecationEnum {
 	if cfg.V2Deprecation == "" {

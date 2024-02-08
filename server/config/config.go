@@ -83,7 +83,6 @@ type ServerConfig struct {
 	TickMs        uint
 	ElectionTicks int
 
-	//
 	MaxElectionMetricsCapacity int 
     MinElectionMetricsCapacity int
     HeartbeatReachabilityGoal float64
