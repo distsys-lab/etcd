@@ -43,6 +43,7 @@ type ServerConfig struct {
 
 	ClientURLs types.URLs
 	PeerURLs   types.URLs
+	ListenUdpURL string
 	DataDir    string
 	// DedicatedWALDir config will make the etcd to write the WAL to the WALDir
 	// rather than the dataDir/member/wal.

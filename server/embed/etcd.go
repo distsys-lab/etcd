@@ -170,6 +170,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		Name:                                     cfg.Name,
 		ClientURLs:                               cfg.AdvertiseClientUrls,
 		PeerURLs:                                 cfg.AdvertisePeerUrls,
+		ListenUdpURL:							  cfg.ListenPeerUdpUrl,
 		DataDir:                                  cfg.Dir,
 		DedicatedWALDir:                          cfg.WalDir,
 		SnapshotCount:                            cfg.SnapshotCount,

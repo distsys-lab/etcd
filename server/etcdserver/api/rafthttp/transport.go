@@ -130,10 +130,10 @@ type Transport struct {
 	pipelineProber probing.Prober
 	streamProber   probing.Prober
 
-	recvcUDP chan raftpb.Message
+	recvcUdp chan raftpb.Message
 	stopc chan struct{}
 	cancel context.CancelFunc // cancel pending works in go routine created by peer.
-	// UDPListenURL string
+	ListenUdpAddr string
 }
 
 func (t *Transport) Start() error {
@@ -150,18 +150,17 @@ func (t *Transport) Start() error {
 	t.peers = make(map[types.ID]Peer)
 	t.pipelineProber = probing.NewProber(t.pipelineRt)
 	t.streamProber = probing.NewProber(t.streamRt)
-	t.recvcUDP = make(chan raftpb.Message, 4096)
+	t.recvcUdp = make(chan raftpb.Message, 4096)
 	t.stopc = make(chan struct{})
 
-	// TODO: Include udp adder in config structure and read from there
-	go t.startUDPListener("0.0.0.0:2381", t.recvcUDP)
+	go t.startUDPListener(t.ListenUdpAddr, t.recvcUdp)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.cancel = cancel
 	go func() {
 		for {
 			select {
-			case mm := <-t.recvcUDP:
+			case mm := <-t.recvcUdp:
 				if err := t.Raft.Process(ctx, mm); err != nil {
 					if t.Logger != nil {
 						t.Logger.Warn("failed to process Raft message", zap.Error(err))
@@ -182,7 +181,7 @@ func (t *Transport) Start() error {
 	return nil
 }
 
-func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Message) {
+func (t *Transport) startUDPListener(address string, recvcUdp chan<- raftpb.Message) {
     conn, err := net.ListenPacket("udp", address)
     if err != nil {
         t.Logger.Error("UDP Listener error", zap.Error(err))
@@ -209,7 +208,7 @@ func (t *Transport) startUDPListener(address string, recvcUDP chan<- raftpb.Mess
 
         t.Logger.Debug("Successfully received message via UDP", zap.String("message-type", msg.Type.String()), zap.Uint64("from-peer-id", msg.From))
 
-        recvcUDP <- msg
+        recvcUdp <- msg
     }
 }
 
