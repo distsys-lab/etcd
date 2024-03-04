@@ -175,6 +175,7 @@ type Config struct {
 	//
     MaxElectionMetricsCapacity int `json:"max-election-metrics-capacity"`
     MinElectionMetricsCapacity int `json:"min-election-metrics-capacity"`
+    ElectionSafetyFactor int `json:"election-safetyFactor"`
     HeartbeatReachabilityGoal float64 `json:"heartbeat-reachability-goal"`
 
 	// InitialElectionTickAdvance is true, then local member fast-forwards
@@ -504,6 +505,7 @@ func NewConfig() *Config {
 		ElectionMs:                 1000,
 		MaxElectionMetricsCapacity: 1000,
         MinElectionMetricsCapacity: 100,
+        ElectionSafetyFactor: 3,
         HeartbeatReachabilityGoal:  0.99,
 		InitialElectionTickAdvance: true,
 
@@ -596,6 +598,7 @@ func (cfg *Config) AddFlags(fs *flag.FlagSet) {
 	fs.UintVar(&cfg.ElectionMs, "election-timeout", cfg.ElectionMs, "Time (in milliseconds) for an election to timeout.")
     fs.IntVar(&cfg.MaxElectionMetricsCapacity, "max-election-metrics-capacity", cfg.MaxElectionMetricsCapacity, "Maximum capacity of election metrics")
     fs.IntVar(&cfg.MinElectionMetricsCapacity, "min-election-metrics-capacity", cfg.MinElectionMetricsCapacity, "Minimum capacity of election metrics")
+    fs.IntVar(&cfg.ElectionSafetyFactor, "election-safety-factor", cfg.ElectionSafetyFactor, "Multiplier for standard deviation in RTT to increase election timeout.")
 	fs.Float64Var(&cfg.HeartbeatReachabilityGoal, "heartbeat-reachability-goal", cfg.HeartbeatReachabilityGoal, "Goal for heartbeat reachability as a percentage.")
 	fs.BoolVar(&cfg.InitialElectionTickAdvance, "initial-election-tick-advance", cfg.InitialElectionTickAdvance, "Whether to fast-forward initial election ticks on boot for faster election.")
 	fs.Int64Var(&cfg.QuotaBackendBytes, "quota-backend-bytes", cfg.QuotaBackendBytes, "Raise alarms when backend size exceeds the given quota. 0 means use the default quota.")

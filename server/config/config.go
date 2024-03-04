@@ -86,6 +86,7 @@ type ServerConfig struct {
 
 	MaxElectionMetricsCapacity int 
     MinElectionMetricsCapacity int
+	ElectionSafetyFactor int
     HeartbeatReachabilityGoal float64
 
 	// InitialElectionTickAdvance is true, then local member fast-forwards

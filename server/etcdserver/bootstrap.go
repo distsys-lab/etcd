@@ -539,6 +539,7 @@ func raftConfig(cfg config.ServerConfig, id uint64, s *raft.MemoryStorage) *raft
 
     setFieldIfExist(confVal, confType, "MaxElectionMetricsCapacity", cfg.MaxElectionMetricsCapacity)
     setFieldIfExist(confVal, confType, "MinElectionMetricsCapacity", cfg.MinElectionMetricsCapacity)
+    setFieldIfExist(confVal, confType, "ElectionSafetyFactor", cfg.ElectionSafetyFactor)
     setFieldIfExist(confVal, confType, "HeartbeatReachabilityGoal", cfg.HeartbeatReachabilityGoal)
 
     return conf
