@@ -175,7 +175,7 @@ type Config struct {
 	//
     MaxElectionMetricsCapacity int `json:"max-election-metrics-capacity"`
     MinElectionMetricsCapacity int `json:"min-election-metrics-capacity"`
-    ElectionSafetyFactor int `json:"election-safetyFactor"`
+    ElectionSafetyFactor int `json:"election-safety-factor"`
     HeartbeatReachabilityGoal float64 `json:"heartbeat-reachability-goal"`
 
 	// InitialElectionTickAdvance is true, then local member fast-forwards
