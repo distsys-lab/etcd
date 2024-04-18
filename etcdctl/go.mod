@@ -2,6 +2,8 @@ module go.etcd.io/etcd/etcdctl/v3
 
 go 1.21
 
+replace go.etcd.io/raft/v3 => /home/koya/Develop/adaptive-raft/raft
+
 require (
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/cheggaaa/pb/v3 v3.1.4
