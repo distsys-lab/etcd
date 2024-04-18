@@ -235,7 +235,19 @@ func (dec *msgAppV2Decoder) decode() (raftpb.Message, error) {
 			return m, err
 		}
 		pbutil.MustUnmarshal(&m, buf)
-
+	
+		// Read SendTime
+		if _, err := io.ReadFull(dec.r, dec.uint64buf); err != nil {
+			return m, err
+		}
+		m.SendTime = binary.BigEndian.Uint64(dec.uint64buf)
+	
+		// Read SequenceId
+		if _, err := io.ReadFull(dec.r, dec.uint64buf); err != nil {
+			return m, err
+		}
+		m.SequenceId = binary.BigEndian.Uint64(dec.uint64buf)
+	
 		dec.term = m.Term
 		dec.index = m.Index
 		if l := len(m.Entries); l > 0 {
