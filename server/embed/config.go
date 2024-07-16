@@ -172,11 +172,12 @@ type Config struct {
 	TickMs     uint `json:"heartbeat-interval"`
 	ElectionMs uint `json:"election-timeout"`
 
-	//
     MaxElectionMetricsCapacity int `json:"max-election-metrics-capacity"`
     MinElectionMetricsCapacity int `json:"min-election-metrics-capacity"`
     ElectionSafetyFactor int `json:"election-safety-factor"`
     HeartbeatReachabilityGoal float64 `json:"heartbeat-reachability-goal"`
+	K int64 `json:"raft-k"`
+    OptimizeHeartbeatInterval bool `json:"optimize-heartbeat-interval"`
 
 	// InitialElectionTickAdvance is true, then local member fast-forwards
 	// election ticks to speed up "initial" leader election trigger. This
@@ -503,10 +504,14 @@ func NewConfig() *Config {
 
 		TickMs:                     100,
 		ElectionMs:                 1000,
+
 		MaxElectionMetricsCapacity: 1000,
         MinElectionMetricsCapacity: 100,
         ElectionSafetyFactor: 3,
         HeartbeatReachabilityGoal:  0.99,
+		K:                         5,
+        OptimizeHeartbeatInterval: true,
+
 		InitialElectionTickAdvance: true,
 
 		ListenPeerUdpUrl:    DefaultListenPeerUdpURL,
@@ -600,6 +605,8 @@ func (cfg *Config) AddFlags(fs *flag.FlagSet) {
     fs.IntVar(&cfg.MinElectionMetricsCapacity, "min-election-metrics-capacity", cfg.MinElectionMetricsCapacity, "Minimum capacity of election metrics")
     fs.IntVar(&cfg.ElectionSafetyFactor, "election-safety-factor", cfg.ElectionSafetyFactor, "Multiplier for standard deviation in RTT to increase election timeout.")
 	fs.Float64Var(&cfg.HeartbeatReachabilityGoal, "heartbeat-reachability-goal", cfg.HeartbeatReachabilityGoal, "Goal for heartbeat reachability as a percentage.")
+	fs.Int64Var(&cfg.K, "heartbeat-k", cfg.K, "Fixed value of K for heartbeat interval when not optimizing")
+	fs.BoolVar(&cfg.OptimizeHeartbeatInterval, "optimize-heartbeat-interval", cfg.OptimizeHeartbeatInterval, "Whether to optimize heartbeat interval")
 	fs.BoolVar(&cfg.InitialElectionTickAdvance, "initial-election-tick-advance", cfg.InitialElectionTickAdvance, "Whether to fast-forward initial election ticks on boot for faster election.")
 	fs.Int64Var(&cfg.QuotaBackendBytes, "quota-backend-bytes", cfg.QuotaBackendBytes, "Raise alarms when backend size exceeds the given quota. 0 means use the default quota.")
 	fs.StringVar(&cfg.BackendFreelistType, "backend-bbolt-freelist-type", cfg.BackendFreelistType, "BackendFreelistType specifies the type of freelist that boltdb backend uses(array and map are supported types)")

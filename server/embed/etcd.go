@@ -190,6 +190,8 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
     	MinElectionMetricsCapacity:               cfg.MinElectionMetricsCapacity,
     	ElectionSafetyFactor:                     cfg.ElectionSafetyFactor,
     	HeartbeatReachabilityGoal:                cfg.HeartbeatReachabilityGoal,
+		K:                                        cfg.K,
+		OptimizeHeartbeatInterval:                cfg.OptimizeHeartbeatInterval,
 		InitialElectionTickAdvance:               cfg.InitialElectionTickAdvance,
 		AutoCompactionRetention:                  autoCompactionRetention,
 		AutoCompactionMode:                       cfg.AutoCompactionMode,
